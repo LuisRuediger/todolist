@@ -3,9 +3,13 @@ package com.luisruediger.todolist.filter;
 import java.io.IOException;
 import java.util.Base64;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.luisruediger.todolist.user.IUserRepository;
+
+import at.favre.lib.crypto.bcrypt.BCrypt;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,6 +17,9 @@ import jakarta.servlet.http.HttpServletResponse;
 
 @Controller
 public class FilterTaskAuth extends OncePerRequestFilter {
+
+  @Autowired
+  private IUserRepository userRepository;
 
   //é usado para executar alguma ação. Ex.: verificar se a senha está cadastrada no BD e liberar o login do usuário
   @Override
@@ -29,16 +36,22 @@ public class FilterTaskAuth extends OncePerRequestFilter {
         var authString = new String(authDecode);
         //faz o split removendo o ":" e coloca o valor nas posições do array, retornando um array com duas posições (user e password)
         String[] credentials = authString.split(":");
-        String user = credentials[0];
+        String username = credentials[0];
         String password = credentials[1];
 
         //validar usuario
+          var user = this.userRepository.findByUsername(username);
 
-        //validar senha
-
-        filterChain.doFilter(request, response);
-
-  }
-
-  
+          if(user == null) {
+            response.sendError(401);
+          }else {
+            //validar senha
+            var passwordVerify =  BCrypt.verifyer().verify(password.toCharArray(), user.getPassword());
+            if(passwordVerify.verified) {            
+              filterChain.doFilter(request, response);
+            }else {
+              response.sendError(401);
+            }
+          }
+      }
 }
